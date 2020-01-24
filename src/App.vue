@@ -13,12 +13,12 @@ import axios from 'axios';
 
 Vue.use(VueAxios, axios);
 Vue.use(VueAuthenticate, {
-  baseUrl: 'http//localhost:8080',
+  baseUrl: 'http://intended.link',
 
   providers: {
     github: {
-      clientId: '',
-      redirectUri: 'http://localhost:8080/#/auth/callback'
+      clientId: '1e5157418654c212b0a0',
+      redirectUri: 'http://intended.link'
     }
   }
 })

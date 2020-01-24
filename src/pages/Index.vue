@@ -7,14 +7,22 @@
 
 <script lang="ts">
 import Vue from 'vue'
+import axios from 'axios';
 import Component from 'vue-class-component';
 
 
 @Component
 export default class PageIndex extends Vue {
   private authenticate() {
-    this.$auth.authenticate('github').then( () => {
-      window.alert('heyyo success');
+    this.$auth.authenticate('github').then( (res) => {
+      axios.get('https://api.github.com/user', {
+        headers: { Authorization: `Bearer ${res.data.access_token}`}
+      }).then( (response) => {
+        console.log(response);
+        window.alert(response.data.login);
+      }).catch( (err) => {
+        window.alert(err);
+      });
     });
   }
 }
