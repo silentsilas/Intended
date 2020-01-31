@@ -79,12 +79,37 @@ export default class Auth extends Vue {
     this.service = response.data.service;
   }
 
-  private tryToAuthenticate() {
+  private async tryToAuthenticate() {
     try {
       this.authenticating = true;
-      this.authenticate();
+      await this.authenticate();
     } catch (err) {
-      window.alert(err);
+      if (err.response) {
+        if (err.response.data instanceof Blob) {
+          // TODO: blob.text() may not work in older browsers
+          // But doing the traditional FileReader way is a pain
+          err.response.data.text().then((jsonResponse: string) => {
+            // don't parse json in case it's not json. formatting will just look weird.
+            window.alert(jsonResponse);
+          });
+        } else {
+          window.alert(err.response.data);
+        }
+      }
+      else if (err.request) {
+        if (err.request.data) {
+          window.alert(err.request.data)
+        } else {
+          window.alert('There was an issue sending your request. Contact the owner for halp.');
+        }
+      }
+      else {
+        if (err.message) {
+          window.alert(err.message);
+        } else {
+          window.alert(err);
+        }
+      }
     } finally {
       this.authenticating = false;
     }
@@ -104,6 +129,7 @@ export default class Auth extends Vue {
         redirectUri: codeResponse.data.redirectUri,
         uuid: this.uuid
       },
+      withCredentials: true,
       responseType: 'blob'
     });
 
