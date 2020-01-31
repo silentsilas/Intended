@@ -49,6 +49,7 @@ import Vue from 'vue'
 import Component from 'vue-class-component';
 import { getModule } from 'vuex-module-decorators';
 import LayoutStoreModule from './LayoutStoreModule';
+// @ts-ignore
 import { version } from '../../package.json';
 
 @Component

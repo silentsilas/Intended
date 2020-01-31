@@ -1,6 +1,10 @@
 <template>
   <q-page class="row justify-center">
     <div class="page-wrapper">
+      <div class="text-center">
+        <p class="page-header">Securely Share Your Secrets</p>
+        <p>Only the person with the account you specify will be able to decrypt your message.</p>
+      </div>
       <form @submit.prevent.stop="generateUrl" class="q-pa-md">
         <q-input
           label="Enter your secret here."
@@ -14,24 +18,17 @@
         <q-input
           label="Their Username / Email"
           class="fullwidth-input"
-          ref="account"
-          v-model="account"
+          ref="user"
+          v-model="user"
           outlined
           lazy-rules
           :rules="[ val => val && val.length > 0 || 'Field is required' ]"
           />
-
-        <!-- <div class="row">
-          <div class="col-xs-12 col-sm-6 col-md-4">
-
-          </div>
-        </div> -->
-        <q-item-label>Type of account:</q-item-label>
+        <p>Type of account:</p>
         <div class="q-gutter-md q-pb-md">
           <q-radio v-model="service" val="github" label="Github" />
-          <q-radio disable v-model="service" val="gmail" label="Gmail" />
-          <q-radio disable v-model="service" val="live" label="Live" />
-          <q-radio disable v-model="service" val="twitter" label="Twitter" />
+          <!-- <q-radio disable v-model="service" val="gmail" label="Gmail" />
+          <q-radio disable v-model="service" val="twitter" label="Twitter" /> -->
         </div>
         <q-btn 
           class="q-py-sm q-px-xl full-width" 
@@ -50,12 +47,10 @@
               ref="url"
               stack-label />
           </q-item-section>
-
           <q-item-section side>
             <q-icon name="file_copy" color="primary" @click.native="copyUrl" />
           </q-item-section>
         </q-item>
-
         <q-item>
           <q-input
             style="word-break: break-all;"
@@ -67,9 +62,6 @@
             type="textarea"
             disable />
         </q-item>
-        <!-- <q-item>
-          <q-btn class="q-py-sm q-px-xl full-width" @click="authenticate" label="Test Github Auth" />
-        </q-item> -->
       </q-list>
     </div>
   </q-page>
@@ -80,6 +72,7 @@ import { QDialog } from 'quasar';
 import Vue from 'vue'
 import axios from 'axios';
 import Component from 'vue-class-component';
+import HexMix from '@/components/HexMix';
 
 
 @Component
@@ -89,7 +82,7 @@ export default class PageIndex extends Vue {
   private decoder: TextDecoder = new TextDecoder();
 
   private plaintext: string = '';
-  private account: string = '';
+  private user: string = '';
   private service: string = 'github';
   private url: string = '';
 
@@ -102,10 +95,13 @@ export default class PageIndex extends Vue {
       return;
     }
 
+    // @ts-ignore
     this.$refs.secret.validate();
-    this.$refs.account.validate();
+    // @ts-ignore
+    this.$refs.user.validate();
 
-    if (this.$refs.secret.hasError || this.$refs.account.hasError) {
+    // @ts-ignore
+    if (this.$refs.secret.hasError || this.$refs.user.hasError) {
       return;
     }
 
@@ -133,59 +129,23 @@ export default class PageIndex extends Vue {
     // encrypted will be sent to lumen backend
     this.encryptedText = this.decoder.decode(encrypted);
 
-    const keyHex = this.uint8ToHex(new Uint8Array(exported));
-    const ivHex = this.uint8ToHex(iv);
-    const urlParams = {
+    const keyHex = HexMix.uint8ToHex(new Uint8Array(exported));
+    const ivHex = HexMix.uint8ToHex(iv);
+    const keyParams = {
       key: keyHex,
       iv: ivHex
     };
+
+    const formData = new FormData();
+    const blobData = new Blob([encrypted]);
+    formData.append('user', this.user);
+    formData.append('service', this.service);
+    formData.append('blob', blobData);
+
+    const createdResponse = await axios.post('https://auth.intended.link/for/you', formData);
     
-    this.url = `${window.location.origin}/for/you/#${btoa(JSON.stringify(urlParams))}`;
-
-    console.log(iv)
-    console.log(this.hexToUint8(ivHex));
-
-    console.log(new Uint8Array(exported));
-    console.log(this.hexToUint8(keyHex));
+    this.url = `${window.location.origin}/for/you/${btoa(createdResponse.data.id)}#${btoa(JSON.stringify(keyParams))}`;
     this.generating = false;
-  }
-
-  private uint8ToHex(data: Uint8Array): string {
-    return Array.prototype.map.call(data, (byte: number) => {
-      return ('00' + byte.toString(16)).slice(-2);
-    }).join('');
-  }
-
-  private hexToUint8(data: string): Uint8Array {
-    const hexArray = data.match(/.{1,2}/g);
-    if (!hexArray) return new Uint8Array(0);
-
-    return Uint8Array.from(hexArray.map((char: string) => {
-      return parseInt(char, 16)
-    }));
-  }
-
-
-  private authenticate() {
-    this.$auth.authenticate('github').then( (res) => {
-      axios.get('https://api.github.com/user', {
-        headers: { Authorization: `Bearer ${res.data.access_token}`}
-      }).then( (response) => {
-        console.log(response);
-        window.alert(response.data.login);
-      }).catch( (err) => {
-        window.alert(err);
-      });
-
-      // if backend says it's an email, then hit email endpoint
-      axios.get('https://api.github.com/user/emails', {
-        headers: { Authorization: `Bearer ${res.data.access_token}`}
-      }).then( (response) => {
-        console.log(response);
-      }).catch( (err) => {
-        window.alert(err);
-      })
-    });
   }
 
   private copyUrl() {
@@ -195,12 +155,12 @@ export default class PageIndex extends Vue {
       document.execCommand('copy');
       this.$q.notify({
         message: 'Successfully copied to clipboard!',
-        position: 'bottom', // 'top', 'left', 'bottom-left' etc.
+        position: 'bottom',
       });
     } catch (err) {
       this.$q.notify({
         message: `Unable to copy to clipboard: ${err}`,
-        position: 'bottom', // 'top', 'left', 'bottom-left' etc.
+        position: 'bottom',
       });
     }
   }
@@ -215,5 +175,9 @@ export default class PageIndex extends Vue {
   }
   .fullwidth-input {
     width: 100%;
+  }
+  .page-header {
+    font-size: 24px;
+    margin: 20px 0px 5px 0px;
   }
 </style>

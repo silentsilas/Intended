@@ -6,6 +6,7 @@ const routes: RouteConfig[] = [
     component: () => import('layouts/AppShell.vue'),
     children: [
       { path: '', component: () => import('pages/Index.vue') },
+      { path: 'for/you/:id', component: () => import('pages/Auth.vue') }
     ],
   },
 ];

@@ -1,6 +1,6 @@
 // Configuration for your app
 // https://quasar.dev/quasar-cli/quasar-conf-js
-
+const path = require('path')
 module.exports = function (ctx) {
   return {
     // Quasar looks for *.js files by default
@@ -101,13 +101,18 @@ module.exports = function (ctx) {
             formatter: require('eslint').CLIEngine.getFormatter('stylish')
           }
         })
+      },
+      chainWebpack (config) {
+        config.resolve
+          .alias
+          .set('@', path.resolve(__dirname, 'src'))
       }
     },
 
     // Full list of options: https://quasar.dev/quasar-cli/quasar-conf-js#Property%3A-devServer
     devServer: {
-      https: false,
-      port: 8080,
+      https: true,
+      port: 443,
       open: true // opens browser window automatically
     },
 
@@ -203,7 +208,7 @@ module.exports = function (ctx) {
       extendWebpack (cfg) {
         // do something with Electron main process Webpack cfg
         // chainWebpack also available besides this extendWebpack
-      }
+      },
     }
   }
 }
