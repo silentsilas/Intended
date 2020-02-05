@@ -45,6 +45,9 @@
             <q-icon name="file_copy" color="primary" @click.native="copySecret" />
           </q-item-section>
         </q-item>
+        <div>
+          {{ error }}
+        </div>
       </q-list>
     </div>
   </q-page>
@@ -56,6 +59,7 @@ import Vue from 'vue'
 import Component from 'vue-class-component';
 import axios from 'axios';
 import HexMix from '@/components/HexMix.ts';
+import OAuthPopup from '@/components/OAuthPopup';
 
 interface GithubEmail {
   email: string,
@@ -71,10 +75,11 @@ export default class Auth extends Vue {
   private uuid: string = '';
   private decoder: TextDecoder = new TextDecoder();
   private plaintext: string = '';
+  private error: string = '';
 
   async mounted() {
     this.uuid = this.$route.params.id;
-    const response = await axios.get(`https://auth.intended.link/for/you/${this.uuid}`);
+    const response = await axios.get(`https://auth.intended.link/api/${this.uuid}`);
     this.user = response.data.user;
     this.service = response.data.service;
   }
@@ -90,6 +95,7 @@ export default class Auth extends Vue {
           // But doing the traditional FileReader way is a pain
           err.response.data.text().then((jsonResponse: string) => {
             // don't parse json in case it's not json. formatting will just look weird.
+            this.error = jsonResponse;
             window.alert(jsonResponse);
           });
         } else {
@@ -118,24 +124,45 @@ export default class Auth extends Vue {
   private async authenticate() {
     // First we'll get the oauth code for the client
     // @ts-ignore
-    const codeResponse = await this.$auth.authenticate('github');
+    // this.$auth.authenticate('github', {
+    //   uuid: this.uuid
+    // }).then( (data: any) => {
+    //   const reader = new FileReader();
+    //   reader.onloadend = this.loadFile;
+    //   reader.readAsArrayBuffer(data);
+    // }).catch( (err: any) => {
+    //   if (err && err.response) {
+    //     const data = err.response.data;
+    //     const reader = new FileReader();
+    //     reader.onloadend = this.loadFile;
+    //     reader.readAsArrayBuffer(data);
+    //   }
+    //   // eslint-disable-next-line
+    //   console.log(JSON.stringify(err));
+    // });
     // TODO: Maybe see if this can be done in one post request?
     // Look into a way to add response-type: 'blob' to this.$auth.authenticate
 
     // With that, we may request the encrypted data if our identity matches
-    const { data } = await axios.get('https://auth.intended.link/github/data', {
+    const redirectUri = `${window.location.origin}${window.location.pathname}`;
+    const authWindow = new OAuthPopup(`https://auth.intended.link/auth?provider=GitHub&uuid=${this.uuid}&redirectUri=${redirectUri}`, 'authWindow', 'width=600,height=400,scrollbars=yes');
+    const success: any = await authWindow.open(redirectUri, false);
+    // @ts-ignore
+
+    const { data } = await axios.get('https://auth.intended.link/auth/data', {
       params: {
-        code: codeResponse.data.code,
-        redirectUri: codeResponse.data.redirectUri,
-        uuid: this.uuid
+        redirectUri: redirectUri,
+        uuid: this.uuid,
+        state: success.state,
+        code: success.code
       },
-      withCredentials: true,
       responseType: 'blob'
     });
 
     const reader = new FileReader();
     reader.onloadend = this.loadFile;
     reader.readAsArrayBuffer(data);
+
   }
 
   private loadFile(fileEvent: ProgressEvent<FileReader>) {

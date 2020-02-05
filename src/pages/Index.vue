@@ -142,7 +142,7 @@ export default class PageIndex extends Vue {
     formData.append('service', this.service);
     formData.append('blob', blobData);
 
-    const createdResponse = await axios.post('https://auth.intended.link/for/you', formData);
+    const createdResponse = await axios.post('https://auth.intended.link/api', formData);
     
     this.url = `${window.location.origin}/for/you/${btoa(createdResponse.data.id)}#${btoa(JSON.stringify(keyParams))}`;
     this.generating = false;

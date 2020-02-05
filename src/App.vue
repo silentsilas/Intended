@@ -14,13 +14,11 @@ import axios from 'axios';
 
 Vue.use(VueAxios, axios);
 Vue.use(VueAuthenticate, {
-  baseUrl: 'https://auth.intended.link',
-
   providers: {
     github: {
-      url: '/github',
+      url: '/auth/github',
       clientId: '1e5157418654c212b0a0',
-      redirectUri: window.location.origin
+      redirectUri: 'https://intended.link'
     }
   }
 })
