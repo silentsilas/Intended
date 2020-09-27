@@ -11,5 +11,16 @@ export default {
     return Uint8Array.from(hexArray.map((char: string) => {
       return parseInt(char, 16)
     }));
+  },
+  arrayBufferToString(buff: ArrayBuffer) {
+    return String.fromCharCode.apply(null, new Uint16Array(buff) as unknown as number[]);
+  },
+  stringToArrayBuffer(str: string) {
+    const buff = new ArrayBuffer(str.length*2) // Because there are 2 bytes for each char.
+    const buffView = new Uint16Array(buff);
+    for(let i = 0, strLen = str.length; i < strLen; i++) {
+      buffView[i] = str.charCodeAt(i);
+    }
+    return buff;
   }
 }

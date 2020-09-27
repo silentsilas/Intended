@@ -34,7 +34,7 @@
         <q-item>
           <q-item-section>
             <q-input
-              label="The secret essage will appear here."
+              label="The secret message will appear here."
               class="fullwidth-input"
               ref="secret"
               v-model="plaintext"
@@ -45,6 +45,14 @@
             <q-icon name="file_copy" color="primary" @click.native="copySecret" />
           </q-item-section>
         </q-item>
+        <q-item>
+          <a class="full-width" :href="fileUrl" :download="filename">
+            <q-btn class="q-py-sm q-px-xl full-width" 
+              :disable="plaintext == ''"
+              color="primary"
+              label="Download" />
+          </a>
+        </q-item>
         <div>
           {{ error }}
         </div>
@@ -54,7 +62,6 @@
 </template>
 
 <script lang="ts">
-import { QDialog } from 'quasar';
 import Vue from 'vue'
 import Component from 'vue-class-component';
 import axios from 'axios';
@@ -73,9 +80,11 @@ export default class Auth extends Vue {
   private user: string = '';
   private service: string = '';
   private uuid: string = '';
-  private decoder: TextDecoder = new TextDecoder();
   private plaintext: string = '';
   private error: string = '';
+  private fileUrl: string = '#';
+  private filetype: string = 'text/plain';
+  private filename: string = '';
 
   async mounted() {
     this.uuid = this.$route.params.id;
@@ -122,47 +131,33 @@ export default class Auth extends Vue {
   }
 
   private async authenticate() {
-    // First we'll get the oauth code for the client
-    // @ts-ignore
-    // this.$auth.authenticate('github', {
-    //   uuid: this.uuid
-    // }).then( (data: any) => {
-    //   const reader = new FileReader();
-    //   reader.onloadend = this.loadFile;
-    //   reader.readAsArrayBuffer(data);
-    // }).catch( (err: any) => {
-    //   if (err && err.response) {
-    //     const data = err.response.data;
-    //     const reader = new FileReader();
-    //     reader.onloadend = this.loadFile;
-    //     reader.readAsArrayBuffer(data);
-    //   }
-    //   // eslint-disable-next-line
-    //   console.log(JSON.stringify(err));
-    // });
-    // TODO: Maybe see if this can be done in one post request?
-    // Look into a way to add response-type: 'blob' to this.$auth.authenticate
-
-    // With that, we may request the encrypted data if our identity matches
     const redirectUri = `${window.location.origin}${window.location.pathname}`;
     const authWindow = new OAuthPopup(`https://auth.intended.link/auth?provider=GitHub&uuid=${this.uuid}&redirectUri=${redirectUri}`, 'authWindow', 'width=600,height=400,scrollbars=yes');
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const success: any = await authWindow.open(redirectUri, false);
-    // @ts-ignore
 
-    const { data } = await axios.get('https://auth.intended.link/auth/data', {
+    const response = await axios.get('https://auth.intended.link/auth/data', {
       params: {
         redirectUri: redirectUri,
         uuid: this.uuid,
         state: success.state,
         code: success.code
       },
-      responseType: 'blob'
+      responseType: 'json'
     });
 
-    const reader = new FileReader();
-    reader.onloadend = this.loadFile;
-    reader.readAsArrayBuffer(data);
+    const arrayReader = new FileReader();
+    arrayReader.onloadend = this.loadFile;
 
+    const binary = atob(response.data.file);
+    this.filetype = response.data.filetype;
+    const blobParts = new Uint8Array(binary.length);
+    for( var i = 0; i < binary.length; i++ ) { blobParts[i] = binary.charCodeAt(i) }
+    const fileBlob = new Blob([blobParts], { type: this.filetype });
+    
+    arrayReader.readAsArrayBuffer(fileBlob);
+
+    this.filename = response.data.filename;
   }
 
   private loadFile(fileEvent: ProgressEvent<FileReader>) {
@@ -200,7 +195,10 @@ export default class Auth extends Vue {
     );
 
     // And voila
-    this.plaintext = this.decoder.decode(encoded);
+    this.plaintext = HexMix.arrayBufferToString(encoded);
+    
+    const blob = new Blob([encoded], {type: this.filetype });
+    this.fileUrl = window.URL.createObjectURL(blob);
   }
 
   private copySecret() {

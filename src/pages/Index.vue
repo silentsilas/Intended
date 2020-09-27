@@ -7,14 +7,27 @@
       </div>
       <form @submit.prevent.stop="generateUrl" class="q-pa-md">
         <q-input
-          label="Enter your secret here."
+          :label="plainfile == null ? 'Enter your secret here.' : 'The file contents we will encrypt.'"
           class="fullwidth-input"
           ref="secret"
           v-model="plaintext"
           outlined
           lazy-rules
+          :disable="plainfile != null"
           :rules="[ val => val && val.length > 0 || 'Field is required' ]"
           type="textarea" />
+          <q-file
+            class="fullwidth-input q-pb-md"
+            v-model="plainfile"
+            ref="file"
+            outlined
+            label="Or select your secret file."
+            @input="onFileInput"
+          >
+          <template v-slot:prepend>
+            <q-icon name="cloud_upload" />
+          </template>
+        </q-file>
         <q-input
           label="Their Username / Email"
           class="fullwidth-input"
@@ -68,7 +81,7 @@
 </template>
 
 <script lang="ts">
-import { QDialog } from 'quasar';
+import { QFile } from 'quasar';
 import Vue from 'vue'
 import axios from 'axios';
 import Component from 'vue-class-component';
@@ -77,11 +90,8 @@ import HexMix from '@/components/HexMix';
 
 @Component
 export default class PageIndex extends Vue {
-
-  private encoder: TextEncoder = new TextEncoder();
-  private decoder: TextDecoder = new TextDecoder();
-
   private plaintext: string = '';
+  private plainfile: File | null = null;
   private user: string = '';
   private service: string = 'github';
   private url: string = '';
@@ -114,7 +124,7 @@ export default class PageIndex extends Vue {
       true,
       ['encrypt', 'decrypt']
     );
-    const encoded = this.encoder.encode(this.plaintext);
+    const encoded = HexMix.stringToArrayBuffer(this.plaintext);
     const iv = window.crypto.getRandomValues(new Uint8Array(16));
     const exported = await window.crypto.subtle.exportKey('raw', key);
     const encrypted = await window.crypto.subtle.encrypt(
@@ -127,7 +137,7 @@ export default class PageIndex extends Vue {
     );
 
     // encrypted will be sent to lumen backend
-    this.encryptedText = this.decoder.decode(encrypted);
+    this.encryptedText = HexMix.arrayBufferToString(encrypted);
 
     const keyHex = HexMix.uint8ToHex(new Uint8Array(exported));
     const ivHex = HexMix.uint8ToHex(iv);
@@ -141,11 +151,53 @@ export default class PageIndex extends Vue {
     formData.append('user', this.user);
     formData.append('service', this.service);
     formData.append('blob', blobData);
+    formData.append('filetype', this.plainfile != null ? this.plainfile.type : 'text/plain');
+    formData.append('filename', this.plainfile != null ? this.plainfile.name : 'secret.txt');
 
-    const createdResponse = await axios.post('https://auth.intended.link/api', formData);
-    
-    this.url = `${window.location.origin}/for/you/${btoa(createdResponse.data.id)}#${btoa(JSON.stringify(keyParams))}`;
+    try {
+      const createdResponse = await axios.post('https://auth.intended.link/api', formData);
+      this.url = `${window.location.origin}/for/you/${btoa(createdResponse.data.id)}#${btoa(JSON.stringify(keyParams))}`;
+    } catch (err) {
+      this.$q.notify({
+        message: err.message,
+        position: 'bottom'
+      });
+    }
+
     this.generating = false;
+  }
+
+  private onFileInput(file: File | null) {
+    if (file instanceof File) {
+      if (file.size > 2097152) {
+        this.$q.notify({
+          message: 'Error: Max file size is 2mb.',
+          position: 'bottom',
+        });
+        const fileInput = (this.$refs.file as QFile);
+        fileInput.removeAtIndex(0);
+        fileInput.blur();
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onloadend = this.loadFile;
+      reader.readAsArrayBuffer(file);
+    }
+  }
+
+  private loadFile(fileEvent: ProgressEvent<FileReader>) {
+    // Make sure we actually got a binary file
+    if (fileEvent && fileEvent.target && 
+        fileEvent.target.result instanceof ArrayBuffer) {
+      const data = (fileEvent.target.result as ArrayBuffer);
+      this.plaintext = HexMix.arrayBufferToString(data);
+    } else {
+      this.$q.notify({
+        message: 'File is either missing or corrupt.',
+        position: 'bottom',
+      });
+    }
   }
 
   private copyUrl() {
