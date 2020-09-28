@@ -195,7 +195,9 @@ export default class Auth extends Vue {
     );
 
     // And voila
-    this.plaintext = HexMix.arrayBufferToString(encoded);
+    HexMix.arrayBufferToString(encoded, (result:string) => {
+      this.plaintext = result;
+    });
     
     const blob = new Blob([encoded], {type: this.filetype });
     this.fileUrl = window.URL.createObjectURL(blob);

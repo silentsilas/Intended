@@ -137,7 +137,9 @@ export default class PageIndex extends Vue {
     );
 
     // encrypted will be sent to lumen backend
-    this.encryptedText = HexMix.arrayBufferToString(encrypted);
+    HexMix.arrayBufferToString(encrypted, (result: string) => {
+      this.encryptedText = result;
+    });
 
     const keyHex = HexMix.uint8ToHex(new Uint8Array(exported));
     const ivHex = HexMix.uint8ToHex(iv);
@@ -191,7 +193,9 @@ export default class PageIndex extends Vue {
     if (fileEvent && fileEvent.target && 
         fileEvent.target.result instanceof ArrayBuffer) {
       const data = (fileEvent.target.result as ArrayBuffer);
-      this.plaintext = HexMix.arrayBufferToString(data);
+      HexMix.arrayBufferToString(data, (result:string) => {
+        this.plaintext = result;
+      });
     } else {
       this.$q.notify({
         message: 'File is either missing or corrupt.',

@@ -12,15 +12,22 @@ export default {
       return parseInt(char, 16)
     }));
   },
-  arrayBufferToString(buff: ArrayBuffer) {
-    return String.fromCharCode.apply(null, new Uint16Array(buff) as unknown as number[]);
+  arrayBufferToString(buf: ArrayBuffer, callback: Function) {
+    const reader = new FileReader();
+    reader.onload = function (event: ProgressEvent<FileReader>) {
+      callback(event?.target?.result);
+    };
+    reader.onerror = function (event: ProgressEvent<FileReader>) {
+      alert(event?.target?.error);
+    };
+    reader.readAsBinaryString(new Blob([ buf ],
+      { type: 'application/octet-stream' }));
   },
   stringToArrayBuffer(str: string) {
-    const buff = new ArrayBuffer(str.length*2) // Because there are 2 bytes for each char.
-    const buffView = new Uint16Array(buff);
-    for(let i = 0, strLen = str.length; i < strLen; i++) {
-      buffView[i] = str.charCodeAt(i);
+    const array = new Uint8Array(str.length);
+    for(let i = 0; i < str.length; i++) {
+      array[i] = str.charCodeAt(i);
     }
-    return buff;
+    return array.buffer
   }
 }
